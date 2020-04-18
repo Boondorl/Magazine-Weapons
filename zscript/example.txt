@@ -1,0 +1,109 @@
+class MagazinePistol : MagazineWeapon replaces Pistol
+{
+	Default
+	{
+		Weapon.Kickback 100;
+		Weapon.SelectionOrder 1900;
+		Weapon.SlotNumber 2;
+		MagazineWeapon.MagazineSize 3;
+		MagazineWeapon.PassiveReloadDelay 35;
+		Weapon.AmmoUse 1;
+		Weapon.AmmoGive 20;
+		Weapon.AmmoType "Clip";
+		Obituary "$OB_MPPISTOL";
+		Inventory.Pickupmessage "$PICKUP_PISTOL_DROPPED";
+		Tag "$TAG_PISTOL";
+		
+		+MAGAZINEWEAPON.PASSIVERELOAD
+	}
+	
+	States
+	{
+		Ready:
+			PISG A 1 A_MagazineWeaponReady;
+			Loop;
+			
+		Deselect:
+			PISG A 1 A_Lower(12);
+			Loop;
+			
+		Select:
+			PISG A 1 A_Raise(12);
+			Loop;
+			
+		Fire:
+			PISG B 1 A_FireNewPistol;
+			PISG C 1;
+			PISG BBBBBBBBB 1 A_CheckFire;
+			TNT1 A 0 A_ReFire;
+			Goto Ready;
+			
+		DryFire:
+			PISG A 10;
+			Goto Ready;
+			
+		/*AltFire:
+			PISG B 1 A_FireNewPistol;
+			PISG C 1;
+			PISG B 1 A_FireNewPistol(true);
+			PISG C 1;
+			PISG B 1 A_FireNewPistol(true);
+			PISG C 1;
+			PISG BBBBBBBBB 1 A_CheckAltFire;
+			TNT1 A 0 A_ReFire;
+			Goto Ready;*/
+			
+		Reload:
+			TNT1 A 0 A_MagOut;
+			PISG A 1 A_WeaponOffset(0, 44, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 56, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 68, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 80, WOF_INTERPOLATE);
+			PISG A 18;
+			PISG A 17 A_MagIn;
+			TNT1 A 0 A_ReloadMagazine(GetMagazineSize()-1);
+			PISG A 1 A_WeaponOffset(0, 80, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 68, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 56, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 44, WOF_INTERPOLATE);
+			PISG A 1 A_WeaponOffset(0, 32, WOF_INTERPOLATE);
+			Goto Ready;
+			
+		Flash:
+			PISF A 1 Bright A_Light1;
+			Goto LightDone;
+			
+		Spawn:
+			PIST A -1;
+			Stop;
+	}
+	
+	action void A_FireNewPistol(bool inaccurate = false)
+	{
+		if (!player)
+			return;
+		
+		A_FireBullets(5.6, 0, inaccurate ? -1 : 1, 10, flags: FBF_NOFLASH|FBF_USEAMMO|FBF_NORANDOM);
+		A_StartSound("weapons/pistol", CHAN_WEAPON, CHANF_OVERLAP);
+		player.SetPSprite(PSP_FLASH, invoker.FindState("Flash"));
+		player.mo.PlayAttacking2();
+	}
+	
+	action void A_CheckFire()
+	{
+		if (!player)
+			return;
+		
+		if ((player.cmd.buttons & BT_ATTACK) && !(player.oldbuttons & BT_ATTACK))
+			A_ReFire();
+	}
+	
+	action void A_CheckAltFire()
+	{
+		if (!player)
+			return;
+		
+		if ((player.cmd.buttons & BT_ALTATTACK) && !(player.oldbuttons & BT_ALTATTACK))
+			A_ReFire();
+	}
+}

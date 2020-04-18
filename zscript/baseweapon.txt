@@ -1,0 +1,882 @@
+//version "4.3"
+
+enum EMagazineWeaponFlags
+{
+	MWF_DRYFIRE = 1,
+	MWF_ALTDRYFIRE = 1<<1,
+	MWF_NOFIRERELOAD = 1<<2,
+	MWF_NOALTFIRERELOAD = 1<<3,
+	MWF_PASSIVERELOAD = 1<<4,
+	MWF_ALTPASSIVERELOAD = 1<<5,
+}
+
+class MagazineWeapon : Weapon
+{
+	// Weapon info
+	int magazine1;
+	int magazine2;
+	
+	// Unmodifiable
+	private int reloadDelayTimer;
+	private int altReloadDelayTimer;
+	private int reloadReady;
+	private int altReloadReady;
+	
+	// Properties
+	int magazineSize1;
+	int magazineSize2;
+	int passiveReloadDelay1;
+	int passiveReloadDelay2;
+	int passiveReloadAmount1;
+	int passiveReloadAmount2;
+	sound chamber1;
+	sound chamber2;
+	sound magazineOut1;
+	sound magazineIn1;
+	sound roundOut1;
+	sound roundIn1;
+	sound magazineOut2;
+	sound magazineIn2;
+	sound roundOut2;
+	sound roundIn2;
+	sound dryFire1;
+	sound dryFire2;
+	
+	property PassiveReloadDelay : passiveReloadDelay1;
+	property PassiveReloadDelay1 : passiveReloadDelay1;
+	property PassiveReloadDelay2 : passiveReloadDelay2;
+	property PassiveReloadAmount : passiveReloadAmount1;
+	property PassiveReloadAmount1 : passiveReloadAmount1;
+	property PassiveReloadAmount2 : passiveReloadAmount2;
+	property MagazineSize : magazineSize1;
+	property MagazineSize1 : magazineSize1;
+	property MagazineSize2 : magazineSize2;
+	property Chamber : chamber1;
+	property MagazineOut : magazineOut1;
+	property MagazineIn : magazineIn1;
+	property RoundOut : roundOut1;
+	property RoundIn : roundIn1;
+	property Chamber1 : chamber1;
+	property MagazineOut1 : magazineOut1;
+	property MagazineIn1 : magazineIn1;
+	property RoundOut1 : roundOut1;
+	property RoundIn1 : roundIn1;
+	property Chamber2 : chamber2;
+	property MagazineOut2 : magazineOut2;
+	property MagazineIn2 : magazineIn2;
+	property RoundOut2 : roundOut2;
+	property RoundIn2 : roundIn2;
+	property DryFire : dryFire1;
+	property DryFire1 : dryFire1;
+	property DryFire2 : dryFire2;
+	
+	deprecated("3.7") private int magazineWeaponFlags;
+	flagdef DryFire : magazineWeaponFlags, 0;
+	flagdef AltDryFire : magazineWeaponFlags, 1;
+	flagdef NoFireReload : magazineWeaponFlags, 2;
+	flagdef NoAltFireReload : magazineWeaponFlags, 3;
+	flagdef PassiveReload : magazineWeaponFlags, 4;
+	flagdef AltPassiveReload : magazineWeaponFlags, 5;
+	
+	Default
+	{
+		MagazineWeapon.PassiveReloadAmount1 -1;
+		MagazineWeapon.PassiveReloadAmount2 -1;
+	}
+	
+	// Decorate helper functions
+	
+	action bool GetDryFire()
+	{
+		return invoker.bDryFire;
+	}
+	
+	action bool GetAltDryFire()
+	{
+		return invoker.bAltDryFire;
+	}
+	
+	action bool GetNoFireReload()
+	{
+		return invoker.bNoFireReload;
+	}
+	
+	action bool GetNoAltFireReload()
+	{
+		return invoker.bNoAltFireReload;
+	}
+	
+	action bool GetPassiveReload()
+	{
+		return invoker.bPassiveReload;
+	}
+	
+	action bool GetAltPassiveReload()
+	{
+		return invoker.bAltPassiveReload;
+	}
+	
+	action void SetMagazineWeaponFlags(int flags, bool value)
+	{
+		if (flags & MWF_DRYFIRE)
+			invoker.bDryFire = value;
+		if (flags & MWF_ALTDRYFIRE)
+			invoker.bAltDryFire = value;
+		if (flags & MWF_NOFIRERELOAD)
+			invoker.bNoFireReload = value;
+		if (flags & MWF_NOALTFIRERELOAD)
+			invoker.bNoAltFireReload = value;
+		if (flags & MWF_PASSIVERELOAD)
+			invoker.bPassiveReload = value;
+		if (flags & MWF_ALTPASSIVERELOAD)
+			invoker.bAltPassiveReload = value;
+	}
+	
+	action int GetMagazine()
+	{
+		return invoker.magazine1;
+	}
+	
+	action void SetMagazine(int size, bool limit = true)
+	{
+		invoker.magazine1 = size;
+		if (invoker.magazine1 < 0)
+			invoker.magazine1 = 0;
+		else if (limit && invoker.magazine1 > invoker.magazineSize1)
+			invoker.magazine1 = invoker.magazineSize1;
+	}
+	
+	action int GetAltMagazine()
+	{
+		return invoker.magazine2;
+	}
+	
+	action void SetAltMagazine(int size, bool limit = true)
+	{
+		invoker.magazine2 = size;
+		if (invoker.magazine2 < 0)
+			invoker.magazine2 = 0;
+		else if (limit && invoker.magazine2 > invoker.magazineSize2)
+			invoker.magazine2 = invoker.magazineSize2;
+	}
+	
+	action int GetMagazineSize()
+	{
+		return invoker.magazineSize1;
+	}
+	
+	action void SetMagazineSize(int size, bool resize = true)
+	{
+		invoker.magazineSize1 = size;
+		if (invoker.magazineSize1 < 0)
+			invoker.magazineSize1 = 0;
+		if (resize && invoker.magazine1 > invoker.magazineSize1)
+			invoker.magazine1 = invoker.magazineSize1;
+	}
+	
+	action int GetAltMagazineSize()
+	{
+		return invoker.magazineSize2;
+	}
+	
+	action void SetAltMagazineSize(int size, bool resize = true)
+	{
+		invoker.magazineSize2 = size;
+		if (invoker.magazineSize2 < 0)
+			invoker.magazineSize2 = 0;
+		if (resize && invoker.magazine2 > invoker.magazineSize2)
+			invoker.magazine2 = invoker.magazineSize2;
+	}
+	
+	action int GetAmmo()
+	{
+		if (invoker.Ammo1)
+			return invoker.Ammo1.amount;
+		
+		return -1;
+	}
+	
+	action void SetAmmo(int size, bool limit = true)
+	{
+		if (invoker.Ammo1)
+		{
+			invoker.Ammo1.amount = size;
+			if (invoker.Ammo1.amount < 0)
+				invoker.Ammo1.amount = 0;
+			else if (limit && invoker.Ammo1.amount > invoker.Ammo1.maxAmount)
+				invoker.Ammo1.amount = invoker.Ammo1.maxAmount;
+		}
+	}
+	
+	action int GetAltAmmo()
+	{
+		if (invoker.Ammo2)
+			return invoker.Ammo2.amount;
+		
+		return -1;
+	}
+	
+	action void SetAltAmmo(int size, bool limit = true)
+	{
+		if (invoker.Ammo2)
+		{
+			invoker.Ammo2.amount = size;
+			if (invoker.Ammo2.amount < 0)
+				invoker.Ammo2.amount = 0;
+			else if (limit && invoker.Ammo2.amount > invoker.Ammo2.maxAmount)
+				invoker.Ammo2.amount = invoker.Ammo2.maxAmount;
+		}
+	}
+	
+	action int GetPassiveReloadDelay()
+	{
+		return invoker.passiveReloadDelay1;
+	}
+	
+	action void SetPassiveReloadDelay(int time, bool reset = false)
+	{
+		invoker.passiveReloadDelay1 = time;
+		if (reset)
+			invoker.reloadDelayTimer = 0;
+	}
+	
+	action int GetAltPassiveReloadDelay()
+	{
+		return invoker.passiveReloadDelay2;
+	}
+	
+	action void SetAltPassiveReloadDelay(int time, bool reset = false)
+	{
+		invoker.passiveReloadDelay2 = time;
+		if (reset)
+			invoker.altReloadDelayTimer = 0;
+	}
+	
+	action int GetPassiveReloadAmount()
+	{
+		return invoker.passiveReloadAmount1;
+	}
+	
+	action void SetPassiveReloadAmount(int amt)
+	{
+		invoker.passiveReloadAmount1 = amt;
+	}
+	
+	action int GetAltPassiveReloadAmount()
+	{
+		return invoker.passiveReloadAmount2;
+	}
+	
+	action void SetAltPassiveReloadAmount(int amt)
+	{
+		invoker.passiveReloadAmount2 = amt;
+	}
+	
+	action void A_Chamber(bool overlap = true)
+	{
+		A_StartSound(invoker.chamber1, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_MagOut(bool overlap = true)
+	{
+		A_StartSound(invoker.magazineOut1, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_MagIn(bool overlap = true)
+	{
+		A_StartSound(invoker.magazineIn1, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_RoundOut(bool overlap = true)
+	{
+		A_StartSound(invoker.roundOut1, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_RoundIn(bool overlap = true)
+	{
+		A_StartSound(invoker.roundIn1, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_DryFire(bool overlap = true)
+	{
+		A_StartSound(invoker.dryFire1, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_AltChamber(bool overlap = true)
+	{
+		A_StartSound(invoker.chamber2, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_AltMagOut(bool overlap = true)
+	{
+		A_StartSound(invoker.magazineOut2, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_AltMagIn(bool overlap = true)
+	{
+		A_StartSound(invoker.magazineIn2, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_AltRoundOut(bool overlap = true)
+	{
+		A_StartSound(invoker.roundOut2, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_AltRoundIn(bool overlap = true)
+	{
+		A_StartSound(invoker.roundIn2, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	action void A_AltDryFire(bool overlap = true)
+	{
+		A_StartSound(invoker.dryFire2, CHAN_WEAPON, overlap ? CHANF_OVERLAP : 0);
+	}
+	
+	// Custom action functions
+	
+	action void A_MagazineWeaponReady(int flags = WRF_ALLOWRELOAD)
+	{
+		if (!player)
+			return;
+		
+		A_WeaponReady(flags);
+		
+		if (player.WeaponState & WF_WEAPONRELOADOK)
+		{
+			player.WeaponState &= ~WF_WEAPONRELOADOK;
+			if ((player.cmd.buttons & BT_RELOAD) && invoker.CheckReload())
+			{
+				bool alt = invoker.magazine1 >= invoker.magazineSize1;
+				State reload;
+				if (alt)
+				{
+					int mag = (invoker.magazineSize2 > 0 || invoker.magazine2 > 0) ? invoker.magazine2 : invoker.magazine1;
+					if (mag <= 0)
+						reload = invoker.GetEmptyReloadState(true);
+					else
+						reload = invoker.GetReloadState(true);
+				}
+				else
+				{
+					if (invoker.magazine1 <= 0)
+						reload = invoker.GetEmptyReloadState();
+					else
+						reload = invoker.GetReloadState();
+				}
+				
+				if (reload)
+				{
+					player.WeaponState = 0;
+					player.SetPSPrite(PSP_WEAPON, reload);
+				}
+			}
+		}
+	}
+	
+	action void A_ReloadMagazine(int amt = -1)
+	{
+		int realAmt = (amt >= 0) ? amt : invoker.magazineSize1;
+		
+		realAmt = min(realAmt, invoker.magazineSize1 - invoker.magazine1);
+		
+		if (sv_infiniteammo || FindInventory("PowerInfiniteAmmo", true))
+		{
+			invoker.magazine1 += realAmt;
+			if (invoker.magazine1 < 0)
+				invoker.magazine1 = 0;
+			else if (invoker.magazine1 > invoker.magazineSize1)
+				invoker.magazine1 = invoker.magazineSize1;
+		
+			return;
+		}
+		
+		if (invoker.Ammo1 && !invoker.bAmmo_Optional)
+			realAmt = min(realAmt, invoker.Ammo1.amount);
+		
+		invoker.magazine1 += realAmt;
+		if (invoker.magazine1 < 0)
+			invoker.magazine1 = 0;
+		else if (invoker.magazine1 > invoker.magazineSize1)
+			invoker.magazine1 = invoker.magazineSize1;
+		
+		if (invoker.Ammo1)
+		{
+			invoker.Ammo1.amount -= realAmt;
+			if (invoker.Ammo1.amount < 0)
+				invoker.Ammo1.amount = 0;
+			else if (invoker.Ammo1.amount > invoker.Ammo1.maxAmount)
+				invoker.Ammo1.amount = invoker.Ammo1.maxAmount;
+		}
+	}
+	
+	action void A_ReloadAltMagazine(int amt = -1)
+	{
+		int realAmt = (amt >= 0) ? amt : invoker.magazineSize2;
+		
+		realAmt = min(realAmt, invoker.magazineSize2 - invoker.magazine2);
+		
+		if (sv_infiniteammo || FindInventory("PowerInfiniteAmmo", true))
+		{
+			invoker.magazine2 += realAmt;
+			if (invoker.magazine2 < 0)
+				invoker.magazine2 = 0;
+			else if (invoker.magazine2 > invoker.magazineSize2)
+				invoker.magazine2 = invoker.magazineSize2;
+		
+			return;
+		}
+		
+		if (invoker.Ammo2 && !invoker.bAlt_Ammo_Optional)
+			realAmt = min(realAmt, invoker.Ammo2.amount);
+		
+		invoker.magazine2 += realAmt;
+		if (invoker.magazine2 < 0)
+			invoker.magazine2 = 0;
+		else if (invoker.magazine2 > invoker.magazineSize2)
+			invoker.magazine2 = invoker.magazineSize2;
+		
+		if (invoker.Ammo2)
+		{
+			invoker.Ammo2.amount -= realAmt;
+			if (invoker.Ammo2.amount < 0)
+				invoker.Ammo2.amount = 0;
+			else if (invoker.Ammo2.amount > invoker.Ammo2.maxAmount)
+				invoker.Ammo2.amount = invoker.Ammo2.maxAmount;
+		}
+	}
+	
+	action void A_CheckReloadMagazine()
+	{
+		if (!player)
+			return;
+		
+		if (invoker.magazine1 < invoker.magazineSize1 && invoker.CheckAmmoPool(PrimaryFire))
+		{
+			State reload;
+			if (invoker.magazine1 <= 0)
+				reload = invoker.GetEmptyReloadState();
+			else
+				reload = invoker.GetReloadState();
+			
+			if (reload)
+				player.SetPSprite(PSP_WEAPON, reload);
+		}
+	}
+	
+	action void A_CheckAltReloadMagazine()
+	{
+		if (!player)
+			return;
+		
+		if (invoker.magazine2 < invoker.magazineSize2 && invoker.CheckAmmoPool(AltFire))
+		{
+			State reload;
+			if (invoker.magazine2 <= 0)
+				reload = invoker.GetEmptyReloadState(true);
+			else
+				reload = invoker.GetReloadState(true);
+			
+			if (reload)
+				player.SetPSprite(PSP_WEAPON, reload);
+		}
+	}
+	
+	action State A_JumpIfMagEmpty(StateLabel sl, int offset = 0)
+	{
+		if (invoker.magazine1 <= 0)
+		{
+			if (sl)
+				return ResolveState(sl) + offset;
+			
+			return ResolveState(null) + offset;
+		}
+		
+		return null;
+	}
+	
+	action State A_JumpIfAltMagEmpty(StateLabel sl, int offset = 0)
+	{
+		if (invoker.magazine2 <= 0)
+		{
+			if (sl)
+				return ResolveState(sl) + offset;
+			
+			return ResolveState(null) + offset;
+		}
+		
+		return null;
+	}
+	
+	// Custom functions
+	
+	bool CheckReload()
+	{
+		return (magazine1 < magazineSize1 && CheckAmmoPool(PrimaryFire)) ||
+				(magazine2 < magazineSize2 && CheckAmmoPool(AltFire));
+	}
+	
+	int ReloadCount()
+	{
+		return reloadReady;
+	}
+	
+	int AltReloadCount()
+	{
+		return altReloadReady;
+	}
+	
+	void ResetPassiveReload()
+	{
+		ResetPassive();
+		ResetAltPassive();
+	}
+	
+	void ResetPassive()
+	{
+		reloadDelayTimer = 0;
+		reloadReady = 0;
+	}
+	
+	void ResetAltPassive()
+	{
+		altReloadDelayTimer = 0;
+		altReloadReady = 0;
+	}
+	
+	// Custom virtuals
+	
+	virtual State GetReloadState(bool alt = false)
+	{
+		State reload;
+		
+		if (alt)
+		{
+			reload = FindState("AltReload");
+			if (!reload)
+				reload = FindState("Reload");
+		}
+		else
+			reload = FindState("Reload");
+		
+		return reload;
+	}
+	
+	virtual State GetEmptyReloadState(bool alt = false)
+	{
+		State empty;
+		
+		if (alt)
+		{
+			empty = FindState("AltEmptyReload");
+			if (!empty)
+				empty = FindState("EmptyReload");
+		}
+		else
+			empty = FindState("EmptyReload");
+		
+		if (!empty)
+			empty = GetReloadState(alt);
+		
+		return empty;
+	}
+	
+	virtual State GetDryFireState(bool alt = false)
+	{
+		State dry;
+		
+		if (alt)
+		{
+			dry = FindState("AltDryFire");
+			if (!dry)
+				dry = FindState("DryFire");
+		}
+		else
+			dry = FindState("DryFire");
+		
+		return dry;
+	}
+	
+	virtual void DoPassiveReload()
+	{
+		int mul = passiveReloadAmount1 < 0 ? 1 : reloadReady;
+		if (mul <= 0)
+			mul = 1;
+		
+		A_ReloadMagazine(passiveReloadAmount1 * mul);
+	}
+	
+	virtual void DoAltPassiveReload()
+	{
+		int mul = passiveReloadAmount2 < 0 ? 1 : altReloadReady;
+		if (mul <= 0)
+			mul = 1;
+		
+		A_ReloadAltMagazine(passiveReloadAmount2 * mul);
+	}
+	
+	// Ammo handling
+	
+	bool CheckAmmoPool(int fireMode, bool requireAmmo = false)
+	{
+		if (sv_infiniteammo || owner.FindInventory("PowerInfiniteAmmo", true))
+			return true;
+		
+		if (fireMode == EitherFire)
+			return CheckAmmoPool(PrimaryFire) || CheckAmmoPool(AltFire);
+		
+		bool altFire = fireMode == AltFire;
+		
+		if (altFire)
+		{
+			// The weapon has no alt fire so this will never be true
+			if (!GetAltAtkState(false))
+				return false;
+			
+			if (!Ammo2)
+				return true;
+		}
+		else if (!Ammo1)
+			return true;
+		
+		bool optional = altFire ? bAlt_Ammo_Optional : bAmmo_Optional;
+		if (!requireAmmo && optional)
+			return true;
+		
+		if (altFire)
+		{
+			double mag = (magazineSize2 > 0 || magazine2 > 0) ? magazine2 : magazine1;
+			return (Ammo2.amount > 0 && mag + Ammo2.amount >= AmmoUse2);
+		}
+		
+		return (Ammo1.amount > 0 && magazine1 + Ammo1.amount >= AmmoUse1);
+	}
+	
+	override bool CheckAmmo(int fireMode, bool autoSwitch, bool requireAmmo, int ammocount)
+	{
+		if (sv_infiniteammo || owner.FindInventory("PowerInfiniteAmmo", true))
+			return true;
+		
+		if (fireMode == AltFire && !GetAltAtkState(false))
+			return false;
+		
+		bool ready = CheckAmmoPool(fireMode, requireAmmo);
+		if (ready)
+		{
+			if (fireMode == PrimaryFire)
+			{
+				if (owner.player.ReadyWeapon == self && (owner.player.cmd.buttons & BT_ATTACK) && magazine1 < AmmoUse1)
+				{
+					State next;
+						
+					if (bNoFireReload)
+						next = GetDryFireState();
+					else
+					{
+						if (magazine1 <= 0)
+							next = GetEmptyReloadState();
+						else
+							next = GetReloadState();
+					}
+						
+					if (next)
+						owner.player.SetPSprite(PSP_WEAPON, next);
+					
+					return false;
+				}
+				
+				return magazine1 >= AmmoUse1;
+			}
+			else if (fireMode == AltFire)
+			{
+				int mag = (magazineSize2 > 0 || magazine2 > 0) ? magazine2 : magazine1;
+				if (owner.player.ReadyWeapon == self && (owner.player.cmd.buttons & BT_ALTATTACK) && mag < AmmoUse2)
+				{
+					State next;
+						
+					if (bNoAltFireReload)
+						next = GetDryFireState(true);
+					else
+					{
+						if (mag <= 0)
+							next = GetEmptyReloadState(true);
+						else
+							next = GetReloadState(true);
+					}
+						
+					if (next)
+						owner.player.SetPSprite(PSP_WEAPON, next);
+					
+					return false;
+				}
+				
+				return mag >= AmmoUse2;
+			}
+		}
+		else
+		{
+			if (fireMode == EitherFire)
+			{
+				if (magazine1 >= AmmoUse1)
+					ready = true;
+				else if (GetAltAtkState(false))
+				{
+					if (magazineSize2 > 0 || magazine2 > 0)
+						ready = magazine2 >= AmmoUse2;
+					else
+						ready = magazine1 >= AmmoUse2;
+				}
+			}
+			else if (fireMode == PrimaryFire)
+			{
+				if (magazine1 >= AmmoUse1)
+					ready = true;
+			}
+			else if (fireMode == AltFire)
+			{
+				int mag = (magazineSize2 > 0 || magazine2 > 0) ? magazine2 : magazine1;
+				if (mag >= AmmoUse2)
+					ready = true;
+			}
+		}
+		
+		if (!ready)
+		{
+			if (owner.player.ReadyWeapon == self &&
+				((fireMode == PrimaryFire && bDryFire && (owner.player.cmd.buttons & BT_ATTACK)) ||
+				(fireMode == AltFire && bAltDryFire && (owner.player.cmd.buttons & BT_ALTATTACK))))
+			{
+				let dry = GetDryFireState(fireMode == Altfire);
+				if (dry)
+					owner.player.SetPSprite(PSP_WEAPON, dry);
+			}
+			else if (autoSwitch)
+				PlayerPawn(owner).PickNewWeapon(null);
+		}
+		
+		return ready;
+	}
+	
+	override bool DepleteAmmo(bool altFire, bool checkEnough, int ammouse)
+	{
+		if (sv_infiniteammo || owner.FindInventory("PowerInfiniteAmmo", true))
+			return true;
+		
+		if (checkEnough && !CheckAmmo(altFire ? AltFire : PrimaryFire, false, false, -1))
+			return false;
+		
+		if (!altFire)
+		{
+			magazine1 -= AmmoUse1;
+			
+			if (bPrimary_Uses_Both)
+				magazine2 -= AmmoUse2;
+		}
+		else
+		{
+			if (magazineSize2 > 0 || magazine2 > 0)
+			{
+				magazine2 -= AmmoUse2;
+				
+				if (bAlt_Uses_Both)
+					magazine1 -= AmmoUse1;
+			}
+			else
+				magazine1 -= AmmoUse2;
+		}
+		
+		if (magazine1 < 0)
+			magazine1 = 0;
+		else if (magazine1 > magazineSize1)
+			magazine1 = magazineSize1;
+		
+		if (magazine2 < 0)
+			magazine2 = 0;
+		else if (magazine2 > magazineSize2)
+			magazine2 = magazineSize2;
+			
+		return true;
+	}
+	
+	// Passive reload logic
+	
+	override void DetachFromOwner()
+	{
+		ResetPassiveReload();
+		
+		super.DetachFromOwner();
+	}
+	
+	override void DoEffect()
+	{
+		super.DoEffect();
+		
+		if (!owner || !owner.player || owner.health <= 0)
+		{
+			ResetPassiveReload();
+			return;
+		}
+		
+		if (owner.player.ReadyWeapon == self)
+		{
+			if (reloadReady > 0)
+				DoPassiveReload();
+			
+			if (altReloadReady > 0)
+				DoAltPassiveReload();
+			
+			ResetPassiveReload();
+			return;
+		}
+		
+		bool infinite = sv_infiniteammo || owner.FindInventory("PowerInfiniteAmmo", true);
+		let weap = owner.player.ReadyWeapon;
+		
+		if (bPassiveReload)
+		{
+			if (magazine1 >= magazineSize1 || !CheckAmmoPool(PrimaryFire))
+				ResetPassive();
+			else if (reloadDelayTimer++ >= passiveReloadDelay1)
+			{
+				reloadDelayTimer = 0;
+				
+				if (!weap || infinite || !Ammo1 ||
+					((Ammo1 != weap.Ammo1 || weap.bAmmo_Optional) &&
+					(Ammo1 != weap.Ammo2 || weap.bAlt_Ammo_Optional)))
+				{
+					++reloadReady;
+				}
+				else
+					DoPassiveReload();
+			}
+		}
+		
+		if (bAltPassiveReload)
+		{
+			if (magazine2 >= magazineSize2 || !CheckAmmoPool(AltFire))
+				ResetAltPassive();
+			else if (altReloadDelayTimer++ >= passiveReloadDelay2)
+			{
+				altReloadDelayTimer = 0;
+				
+				if (!weap || infinite || !Ammo2 ||
+					((Ammo2 != weap.Ammo1 || weap.bAmmo_Optional) &&
+					(Ammo2 != weap.Ammo2 || weap.bAlt_Ammo_Optional)))
+				{
+					++altReloadReady;
+				}
+				else
+					DoAltPassiveReload();
+			}
+		}
+	}
+	
+	// Initialize weapon info
+	
+	override void PostBeginPlay()
+	{
+		super.PostBeginPlay();
+		
+		magazine1 = magazineSize1;
+		magazine2 = magazineSize2;
+	}
+}
